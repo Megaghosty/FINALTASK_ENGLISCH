@@ -63,13 +63,11 @@
     </div>
 
     <script>
-        // CONFIGURATION JSONBIN
-        const BIN_ID = "TON_BIN_ID_ICI"; 
-        const API_KEY = "TON_MASTER_KEY_ICI";
+        const BIN_ID = "6a280a49da38895dfea022b1"; 
+        const API_KEY = "$2a$10$juGyrAPOP2NEcWv322Q5..PvFOhU5GHtvq/XPyGM2O97LKLFlOlwe";
 
         const canvas = document.getElementById('waveCanvas');
         const ctx = canvas.getContext('2d');
-
         const sliderA = document.getElementById('sliderA'), sliderF = document.getElementById('sliderF'), sliderP = document.getElementById('sliderP');
         const valA = document.getElementById('valA'), valF = document.getElementById('valF'), valP = document.getElementById('valP');
         const scoreDisplay = document.getElementById('score-display');
@@ -77,26 +75,20 @@
         const btnNew = document.getElementById('btnNew');
 
         let target = { A: 0, f: 0, p: 0 };
-        let startTime;
-        let timerInterval;
-        let isVictorious = false;
-
+        let startTime, timerInterval, isVictorious = false;
         const rangeA = 3.0 - 0.5, rangeF = 5.0 - 1.0, rangeP = 6.28 - 0.0;
 
         function startTimer() {
             clearInterval(timerInterval);
             isVictorious = false;
             startTime = Date.now();
-            timerDisplay.style.color = '#ffeb3b';
             timerInterval = setInterval(() => {
                 if (!isVictorious) timerDisplay.textContent = `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
             }, 100);
         }
 
-        // SAVE SCORE TO JSONBIN
         async function saveScore(newTime) {
             const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
-            
             let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
             let data = await response.json();
             let allScores = data.record;
@@ -142,20 +134,17 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height); drawGrid();
             const userA = parseFloat(sliderA.value), userF = parseFloat(sliderF.value), userP = parseFloat(sliderP.value);
             valA.textContent = userA.toFixed(1); valF.textContent = userF.toFixed(1) + ' Hz'; valP.textContent = userP.toFixed(1) + ' rad';
-
             drawWave(target.A, target.f, target.p, 'rgba(255, 80, 80, 0.6)', true);
             drawWave(userA, userF, userP, '#00d2ff', false);
 
             const totalError = ((Math.abs(userA - target.A) / rangeA) + (Math.abs(userF - target.f) / rangeF) + (Math.abs(userP - target.p) / rangeP)) / 3;
             let score = Math.max(0, (1 - totalError) * 100).toFixed(1); 
             
-            if (!isVictorious) {
-                if (score >= 98.0) {
-                    scoreDisplay.textContent = `🎯 SIGNAL SYNCHRONIZED! (${score}%)`; scoreDisplay.className = 'victory';
-                    timerDisplay.style.color = '#00ff00'; isVictorious = true; clearInterval(timerInterval);
-                    saveScore((Date.now() - startTime) / 1000);
-                } else { scoreDisplay.textContent = `Accuracy: ${score}%`; }
-            }
+            if (!isVictorious && score >= 98.0) {
+                isVictorious = true; clearInterval(timerInterval);
+                scoreDisplay.textContent = `🎯 SIGNAL SYNCHRONIZED! (${score}%)`; scoreDisplay.className = 'victory';
+                saveScore((Date.now() - startTime) / 1000);
+            } else if (!isVictorious) scoreDisplay.textContent = `Accuracy: ${score}%`;
         }
 
         sliderA.addEventListener('input', updateCanvas); sliderF.addEventListener('input', updateCanvas); sliderP.addEventListener('input', updateCanvas);
