@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Wave Decoder</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #ffffff; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        h1 { margin-top: 0; color: #00ff00; margin-bottom: 5px; }
+        .back-link { color: #00ff00; text-decoration: none; border: 1px solid #00ff00; padding: 8px 15px; border-radius: 5px; transition: all 0.2s; align-self: flex-start; margin-left: 10%; margin-bottom: 10px; }
+        .back-link:hover { background-color: #00ff00; color: #121212; }
+        
+        .game-container { background-color: #2a2a2a; padding: 30px; border-radius: 8px; width: 80%; max-width: 800px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center; }
+        #timer-display { font-size: 24px; color: #ffeb3b; font-family: monospace; font-weight: bold; margin-bottom: 15px; }
+
+        canvas.binary-display { background-color: #1e1e1e; border-radius: 5px; border: 1px solid #444; margin-bottom: 20px; width: 100%; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .input-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { padding: 10px; font-size: 18px; border-radius: 5px; border: 1px solid #555; background-color: #1e1e1e; color: white; text-transform: uppercase; width: 250px; text-align: center; font-weight: bold; }
+        button { padding: 10px 20px; background-color: #00ff00; color: #121212; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #00cc00; }
+        #message { font-size: 20px; font-weight: bold; margin-bottom: 20px; height: 25px; }
+        .success { color: #00ff00; } .error { color: #ff5050; }
+        
+        .dictionary { margin-top: 30px; background-color: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; }
+        .dictionary h3 { margin-top: 0; color: #4da8da; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; font-family: monospace; font-size: 16px; }
+        .grid-item { background-color: #2a2a2a; padding: 5px; border-radius: 3px; text-align: center; }
+        .grid-item span { color: #ffeb3b; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-link">⬅️ Back to Dashboard</a>
+
+    <h1>Binary Wave Decoder</h1>
+    
+    <div class="game-container">
+        <p>Read the digital wave below (square wave) and translate it into text as fast as possible:</p>
+        
+        <div id="timer-display">Time: 0.0s</div>
+
+        <canvas id="trameCanvas" width="760" height="120" class="binary-display"></canvas>
+
+        <div class="input-group">
+            <input type="text" id="userInput" placeholder="TYPE THE WORD HERE" maxlength="10" autocomplete="off">
+            <button id="btnSubmit">Submit</button>
+            <button id="btnNext" style="display: none; background-color: #4da8da; color: white;">Next Word</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="dictionary">
+            <h3>ASCII Conversion Table (8-bit)</h3>
+            <div class="grid" id="dict-grid">
+                <!-- Javascript will generate the table -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const wordList = [
+            "SIGNAL", "FRAME", "NETWORK", "LOOP", "CODER", 
+            "SERVER", "CLIENT", "DATA", "SYSTEM", "HACKER",
+            "MODEM", "FIBER", "BYTE", "PIXELS", "OFFICE"
+        ];
+
+        let currentWord = "";
+        let startTime;
+        let timerInterval;
+        let isVictorious = false;
+        
+        const canvas = document.getElementById('trameCanvas');
+        const ctx = canvas.getContext('2d');
+        const userInput = document.getElementById('userInput');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const btnNext = document.getElementById('btnNext');
+        const messageDisplay = document.getElementById('message');
+        const dictGrid = document.getElementById('dict-grid');
+        const timerDisplay = document.getElementById('timer-display');
+
+        function generateDictionary() {
+            for (let i = 65; i <= 90; i++) {
+                const letter = String.fromCharCode(i);
+                const binary = i.toString(2).padStart(8, '0');
+                
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerHTML = `${letter} = <span>${binary}</span>`;
+                dictGrid.appendChild(div);
+            }
+        }
+
+        function textToBinaryRaw(text) {
+            return text.split('').map(char => {
+                return char.charCodeAt(0).toString(2).padStart(8, '0');
+            }).join('');
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            isVictorious = false;
+            startTime = Date.now();
+            timerDisplay.style.color = '#ffeb3b';
+            
+            timerInterval = setInterval(() => {
+                if (!isVictorious) {
+                    const elapsedTime = (Date.now() - startTime) / 1000;
+                    timerDisplay.textContent = `Time: ${elapsedTime.toFixed(1)}s`;
+                }
+            }, 100);
+        }
+
+        // Feature: Auto-save score to global leaderboard from Dashboard
+        function saveScore(time) {
+            const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
+            let scores = JSON.parse(localStorage.getItem('scores_binary') || "[]");
+            const existingIndex = scores.findIndex(s => s.name === nickname);
+            if (existingIndex !== -1) {
+                if (time < scores[existingIndex].score) {
+                    scores[existingIndex].score = time; // Ecraser si le nouveau temps est meilleur
+                }
+            } else {
+                scores.push({ name: nickname, score: time });
+            }
+            localStorage.setItem('scores_binary', JSON.stringify(scores));
+        }
+
+        function drawDigitalWave(binaryString) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const bitWidth = canvas.width / binaryString.length;
+            const yHigh = 25; 
+            const yLow = canvas.height - 25; 
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(0, yHigh); ctx.lineTo(canvas.width, yHigh);
+            ctx.moveTo(0, yLow); ctx.lineTo(canvas.width, yLow);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#222';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            for(let i = 0; i <= binaryString.length; i++) {
+                const x = i * bitWidth;
+                ctx.beginPath();
+                ctx.strokeStyle = (i % 8 === 0) ? '#666' : '#222'; 
+                ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#ffeb3b';
+            ctx.lineWidth = 3;
+
+            let currentY = binaryString[0] === '1' ? yHigh : yLow;
+            ctx.moveTo(0, currentY);
+
+            for (let i = 0; i < binaryString.length; i++) {
+                const bit = binaryString[i];
+                const targetY = bit === '1' ? yHigh : yLow;
+
+                if (targetY !== currentY) {
+                    ctx.lineTo(i * bitWidth, targetY);
+                    currentY = targetY;
+                }
+                ctx.lineTo((i + 1) * bitWidth, currentY);
+            }
+            ctx.stroke();
+        }
+
+        function startNewRound() {
+            currentWord = wordList[Math.floor(Math.random() * wordList.length)];
+            const rawBits = textToBinaryRaw(currentWord);
+            
+            drawDigitalWave(rawBits);
+            
+            userInput.value = "";
+            userInput.disabled = false;
+            messageDisplay.textContent = "";
+            messageDisplay.className = "";
+            btnSubmit.style.display = "block";
+            btnNext.style.display = "none";
+            
+            startTimer();
+            userInput.focus();
+        }
+
+        function checkAnswer() {
+            const guess = userInput.value.trim().toUpperCase();
+            
+            if (guess === currentWord) {
+                isVictorious = true;
+                clearInterval(timerInterval);
+                
+                messageDisplay.textContent = "✅ ACCESS GRANTED: Perfect translation!";
+                messageDisplay.className = "success";
+                userInput.disabled = true;
+                btnSubmit.style.display = "none";
+                btnNext.style.display = "block";
+                
+                ctx.strokeStyle = '#00ff00';
+                ctx.stroke();
+
+                saveScore((Date.now() - startTime) / 1000);
+            } else {
+                messageDisplay.textContent = "❌ DECODING ERROR: Try again.";
+                messageDisplay.className = "error";
+                userInput.style.transform = "translateX(5px)";
+                setTimeout(() => userInput.style.transform = "translateX(-5px)", 50);
+                setTimeout(() => userInput.style.transform = "translateX(0)", 100);
+            }
+        }
+
+        btnSubmit.addEventListener('click', checkAnswer);
+        btnNext.addEventListener('click', startNewRound);
+        
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        generateDictionary();
+        startNewRound();
+    </script>
+</body>
+</html>
