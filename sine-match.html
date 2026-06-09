@@ -63,6 +63,10 @@
     </div>
 
     <script>
+        // CONFIGURATION JSONBIN
+        const BIN_ID = "TON_BIN_ID_ICI"; 
+        const API_KEY = "TON_MASTER_KEY_ICI";
+
         const canvas = document.getElementById('waveCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -77,135 +81,85 @@
         let timerInterval;
         let isVictorious = false;
 
-        const rangeA = 3.0 - 0.5;
-        const rangeF = 5.0 - 1.0;
-        const rangeP = 6.28 - 0.0;
+        const rangeA = 3.0 - 0.5, rangeF = 5.0 - 1.0, rangeP = 6.28 - 0.0;
 
         function startTimer() {
             clearInterval(timerInterval);
             isVictorious = false;
             startTime = Date.now();
             timerDisplay.style.color = '#ffeb3b';
-            
             timerInterval = setInterval(() => {
-                if (!isVictorious) {
-                    const elapsedTime = (Date.now() - startTime) / 1000;
-                    timerDisplay.textContent = `Time: ${elapsedTime.toFixed(1)}s`;
-                }
+                if (!isVictorious) timerDisplay.textContent = `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
             }, 100);
         }
 
-        // Feature: Auto-save score to global leaderboard from Dashboard
-        function saveScore(time) {
+        // SAVE SCORE TO JSONBIN
+        async function saveScore(newTime) {
             const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
-            let scores = JSON.parse(localStorage.getItem('scores_sine') || "[]");
-            const existingIndex = scores.findIndex(s => s.name === nickname);
-            if (existingIndex !== -1) {
-                if (time < scores[existingIndex].score) {
-                    scores[existingIndex].score = time; // Ecraser si le nouveau temps est meilleur
-                }
-            } else {
-                scores.push({ name: nickname, score: time });
-            }
-            localStorage.setItem('scores_sine', JSON.stringify(scores));
+            
+            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
+            let data = await response.json();
+            let allScores = data.record;
+
+            allScores.scores_sine.push({ name: nickname, score: newTime });
+            allScores.scores_sine.sort((a, b) => a.score - b.score);
+            allScores.scores_sine = allScores.scores_sine.slice(0, 10);
+
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify(allScores)
+            });
         }
 
         function generateTarget() {
             target.A = (Math.random() * rangeA + 0.5).toFixed(1);
             target.f = (Math.random() * rangeF + 1.0).toFixed(1);
             target.p = (Math.random() * rangeP).toFixed(1);
-            
             scoreDisplay.className = '';
             startTimer();
             updateCanvas();
         }
 
         function drawWave(A, f, p, color, isDashed = false) {
-            ctx.beginPath();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
-            ctx.setLineDash(isDashed ? [10, 10] : []);
-
-            const centerY = canvas.height / 2;
-            const scaleY = (canvas.height / 2) / 3.5; 
-            
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash(isDashed ? [10, 10] : []);
+            const centerY = canvas.height / 2, scaleY = (canvas.height / 2) / 3.5; 
             for (let x = 0; x < canvas.width; x++) {
-                let t = (x / canvas.width) * 2; 
-                let y = A * Math.sin(2 * Math.PI * f * t + parseFloat(p));
-                let canvasY = centerY - (y * scaleY);
-
-                if (x === 0) {
-                    ctx.moveTo(x, canvasY);
-                } else {
-                    ctx.lineTo(x, canvasY);
-                }
+                let t = (x / canvas.width) * 2, y = A * Math.sin(2 * Math.PI * f * t + parseFloat(p));
+                if (x === 0) ctx.moveTo(x, centerY - (y * scaleY)); else ctx.lineTo(x, centerY - (y * scaleY));
             }
             ctx.stroke();
         }
 
         function drawGrid() {
-            ctx.beginPath();
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([]);
-            
-            ctx.moveTo(0, canvas.height / 2);
-            ctx.lineTo(canvas.width, canvas.height / 2);
-            
-            for(let i = 1; i < 4; i++) {
-                ctx.moveTo((canvas.width/4)*i, 0);
-                ctx.lineTo((canvas.width/4)*i, canvas.height);
-            }
+            ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.setLineDash([]);
+            ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2);
+            for(let i = 1; i < 4; i++) { ctx.moveTo((canvas.width/4)*i, 0); ctx.lineTo((canvas.width/4)*i, canvas.height); }
             ctx.stroke();
         }
 
         function updateCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawGrid();
+            ctx.clearRect(0, 0, canvas.width, canvas.height); drawGrid();
+            const userA = parseFloat(sliderA.value), userF = parseFloat(sliderF.value), userP = parseFloat(sliderP.value);
+            valA.textContent = userA.toFixed(1); valF.textContent = userF.toFixed(1) + ' Hz'; valP.textContent = userP.toFixed(1) + ' rad';
 
-            const userA = parseFloat(sliderA.value);
-            const userF = parseFloat(sliderF.value);
-            const userP = parseFloat(sliderP.value);
-
-            valA.textContent = userA.toFixed(1);
-            valF.textContent = userF.toFixed(1) + ' Hz';
-            valP.textContent = userP.toFixed(1) + ' rad';
-
-            // Draw Target (Red Dashed)
             drawWave(target.A, target.f, target.p, 'rgba(255, 80, 80, 0.6)', true);
-            // Draw User (Blue)
             drawWave(userA, userF, userP, '#00d2ff', false);
 
-            // Calculation
-            const errA = Math.abs(userA - target.A) / rangeA;
-            const errF = Math.abs(userF - target.f) / rangeF;
-            const errP = Math.abs(userP - target.p) / rangeP;
-
-            const totalError = (errA + errF + errP) / 3;
+            const totalError = ((Math.abs(userA - target.A) / rangeA) + (Math.abs(userF - target.f) / rangeF) + (Math.abs(userP - target.p) / rangeP)) / 3;
             let score = Math.max(0, (1 - totalError) * 100).toFixed(1); 
             
             if (!isVictorious) {
                 if (score >= 98.0) {
-                    scoreDisplay.textContent = `🎯 SIGNAL SYNCHRONIZED! (${score}%)`;
-                    scoreDisplay.className = 'victory';
-                    timerDisplay.style.color = '#00ff00';
-                    isVictorious = true;
-                    clearInterval(timerInterval);
-                    
-                    let finalTime = (Date.now() - startTime) / 1000;
-                    saveScore(finalTime);
-                } else {
-                    scoreDisplay.textContent = `Accuracy: ${score}%`;
-                    scoreDisplay.className = '';
-                }
+                    scoreDisplay.textContent = `🎯 SIGNAL SYNCHRONIZED! (${score}%)`; scoreDisplay.className = 'victory';
+                    timerDisplay.style.color = '#00ff00'; isVictorious = true; clearInterval(timerInterval);
+                    saveScore((Date.now() - startTime) / 1000);
+                } else { scoreDisplay.textContent = `Accuracy: ${score}%`; }
             }
         }
 
-        sliderA.addEventListener('input', updateCanvas);
-        sliderF.addEventListener('input', updateCanvas);
-        sliderP.addEventListener('input', updateCanvas);
+        sliderA.addEventListener('input', updateCanvas); sliderF.addEventListener('input', updateCanvas); sliderP.addEventListener('input', updateCanvas);
         btnNew.addEventListener('click', generateTarget);
-
         generateTarget();
     </script>
 </body>

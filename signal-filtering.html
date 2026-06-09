@@ -64,171 +64,96 @@
     </div>
 
     <script>
+        // CONFIGURATION JSONBIN
+        const BIN_ID = "6a280a49da38895dfea022b1"; 
+        const API_KEY = "$2a$10$juGyrAPOP2NEcWv322Q5..PvFOhU5GHtvq/XPyGM2O97LKLFlOlwe";
+
         const canvas = document.getElementById('filterCanvas');
         const ctx = canvas.getContext('2d');
-        const sliderLP = document.getElementById('sliderLP');
-        const sliderHP = document.getElementById('sliderHP');
-        const valLP = document.getElementById('valLP');
-        const valHP = document.getElementById('valHP');
-        const scoreDisplay = document.getElementById('score-display');
-        const timerDisplay = document.getElementById('timer-display');
+        const sliderLP = document.getElementById('sliderLP'), sliderHP = document.getElementById('sliderHP');
+        const valLP = document.getElementById('valLP'), valHP = document.getElementById('valHP');
+        const scoreDisplay = document.getElementById('score-display'), timerDisplay = document.getElementById('timer-display');
         
-        // Base Signal
-        let targetFreq = 2.0; 
-        let targetPhase = 0.0;
-        
-        // Noise
-        let highNoiseFreq = 20.0;
-        let highNoiseAmp = 1.2; 
-        let lowDriftFreq = 0.2;
-        let lowDriftAmp = 1.5; 
-        
-        let startTime;
-        let timerInterval;
-        let isVictorious = false;
+        let targetFreq = 2.0, targetPhase = 0.0, highNoiseFreq = 20.0, highNoiseAmp = 1.2, lowDriftFreq = 0.2, lowDriftAmp = 1.5; 
+        let startTime, timerInterval, isVictorious = false;
 
         function startTimer() {
             clearInterval(timerInterval);
             isVictorious = false;
             startTime = Date.now();
-            timerDisplay.style.color = '#ffeb3b';
-            
             timerInterval = setInterval(() => {
-                if (!isVictorious) {
-                    const elapsedTime = (Date.now() - startTime) / 1000;
-                    timerDisplay.textContent = `Time: ${elapsedTime.toFixed(1)}s`;
-                }
+                if (!isVictorious) timerDisplay.textContent = `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
             }, 100);
         }
 
-        // Leaderboard Save
-        function saveScore(time) {
+        // SAVE SCORE TO JSONBIN
+        async function saveScore(newTime) {
             const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
-            let scores = JSON.parse(localStorage.getItem('scores_filter') || "[]");
-            const existingIndex = scores.findIndex(s => s.name === nickname);
-            if (existingIndex !== -1) {
-                if (time < scores[existingIndex].score) {
-                    scores[existingIndex].score = time; // Ecraser si le nouveau temps est meilleur
-                }
-            } else {
-                scores.push({ name: nickname, score: time });
-            }
-            localStorage.setItem('scores_filter', JSON.stringify(scores));
+            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
+            let data = await response.json();
+            let allScores = data.record;
+
+            allScores.scores_filter.push({ name: nickname, score: newTime });
+            allScores.scores_filter.sort((a, b) => a.score - b.score);
+            allScores.scores_filter = allScores.scores_filter.slice(0, 10);
+
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify(allScores)
+            });
         }
 
         function drawSignals() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Grid
-            ctx.beginPath();
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 1;
-            ctx.moveTo(0, canvas.height / 2);
-            ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.stroke();
+            ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
 
-            // Cutoff frequencies from sliders
-            let f_LP = parseFloat(sliderLP.value); // Hz
-            let f_HP = parseFloat(sliderHP.value); // Hz
-            
+            let f_LP = parseFloat(sliderLP.value), f_HP = parseFloat(sliderHP.value);
             valLP.textContent = f_LP >= 40 ? "Bypass (40Hz)" : f_LP.toFixed(1) + " Hz";
             valHP.textContent = f_HP <= 0 ? "Bypass (0Hz)" : f_HP.toFixed(1) + " Hz";
 
-            // 4th Order Butterworth Filter Simulation (Sharper cutoff to make it achievable)
             const getLP = (f, fc) => 1.0 / Math.sqrt(1 + Math.pow(f / fc, 8));
             const getHP = (f, fc) => fc === 0 ? 1.0 : (f === 0 ? 0.0 : 1.0 / Math.sqrt(1 + Math.pow(fc / f, 8)));
 
-            // Calculate resulting amplitudes after going through both filters
             let currentTargetAmp = 1.0 * getLP(targetFreq, f_LP) * getHP(targetFreq, f_HP);
             let currentHighAmp = highNoiseAmp * getLP(highNoiseFreq, f_LP) * getHP(highNoiseFreq, f_HP);
             let currentLowAmp = lowDriftAmp * getLP(lowDriftFreq, f_LP) * getHP(lowDriftFreq, f_HP);
 
-            const centerY = canvas.height / 2;
-            const scaleY = (canvas.height / 2) / 3.0; // scale for vertical fit
+            const centerY = canvas.height / 2, scaleY = (canvas.height / 2) / 3.0;
 
-            // Target Wave (Dashed Red)
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 10]);
-            
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)'; ctx.lineWidth = 3; ctx.setLineDash([10, 10]);
+            for (let x = 0; x < canvas.width; x++) {
+                let t = (x / canvas.width) * 2, y = Math.sin(2 * Math.PI * targetFreq * t + targetPhase);
+                if (x === 0) ctx.moveTo(x, centerY - (y * scaleY)); else ctx.lineTo(x, centerY - (y * scaleY));
+            } ctx.stroke();
+
+            ctx.beginPath(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([]);
             for (let x = 0; x < canvas.width; x++) {
                 let t = (x / canvas.width) * 2;
-                let y = Math.sin(2 * Math.PI * targetFreq * t + targetPhase);
-                let canvasY = centerY - (y * scaleY);
-                if (x === 0) ctx.moveTo(x, canvasY); else ctx.lineTo(x, canvasY);
-            }
-            ctx.stroke();
+                let y = (currentTargetAmp * Math.sin(2 * Math.PI * targetFreq * t + targetPhase)) + (currentHighAmp * Math.sin(2 * Math.PI * highNoiseFreq * t)) + (currentLowAmp * Math.sin(2 * Math.PI * lowDriftFreq * t));
+                if (x === 0) ctx.moveTo(x, centerY - (y * scaleY)); else ctx.lineTo(x, centerY - (y * scaleY));
+            } ctx.stroke();
 
-            // Player / Processed Wave (Solid White)
-            ctx.beginPath();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            
-            for (let x = 0; x < canvas.width; x++) {
-                let t = (x / canvas.width) * 2;
-                // Clean Signal base (Amplitude affected by filters)
-                let y = currentTargetAmp * Math.sin(2 * Math.PI * targetFreq * t + targetPhase);
-                // Add remaining noises
-                y += currentHighAmp * Math.sin(2 * Math.PI * highNoiseFreq * t);
-                y += currentLowAmp * Math.sin(2 * Math.PI * lowDriftFreq * t);
-                
-                let canvasY = centerY - (y * scaleY);
-                if (x === 0) ctx.moveTo(x, canvasY); else ctx.lineTo(x, canvasY);
-            }
-            ctx.stroke();
-
-            // Score calculation based on realistic filter tuning (Sweet Spot)
-            let targetError = Math.abs(1.0 - currentTargetAmp);
-            let noiseError = (currentHighAmp + currentLowAmp);
-            
-            // Greatly reduced penalties: The game is now very forgiving.
-            let totalError = targetError * 0.4 + noiseError * 0.15;
-            let accuracy = Math.max(0, (1.0 - totalError)) * 100;
-
+            let accuracy = Math.max(0, (1.0 - (Math.abs(1.0 - currentTargetAmp) * 0.4 + (currentHighAmp + currentLowAmp) * 0.15))) * 100;
             if (!isVictorious) {
-                if (accuracy >= 85.0) { // Lowered threshold to 85% to make it accessible and fast-paced
-                    scoreDisplay.textContent = `🎯 SIGNAL CLEANED!`;
-                    scoreDisplay.className = 'victory';
-                    timerDisplay.style.color = '#00ff00';
-                    isVictorious = true;
-                    clearInterval(timerInterval);
-                    
+                if (accuracy >= 85.0) {
+                    scoreDisplay.textContent = `🎯 SIGNAL CLEANED!`; scoreDisplay.className = 'victory';
+                    timerDisplay.style.color = '#00ff00'; isVictorious = true; clearInterval(timerInterval);
                     saveScore((Date.now() - startTime) / 1000);
-                } else {
-                    scoreDisplay.textContent = `Purity: ${accuracy.toFixed(1)}%`;
-                    scoreDisplay.className = '';
-                }
+                } else scoreDisplay.textContent = `Purity: ${accuracy.toFixed(1)}%`;
             }
         }
 
         function restart() {
-            // Target Base Signal
-            targetFreq = 3.0 + Math.random() * 8.0; // Between 3 and 11 Hz
-            targetPhase = Math.random() * Math.PI * 2; 
-            
-            // Ensure HUGE separation between frequencies so it's mathematically possible to filter
-            highNoiseFreq = targetFreq * (4.0 + Math.random() * 3.0); // 4x to 7x higher than target
-            lowDriftFreq = targetFreq * (0.02 + Math.random() * 0.05); // Extremely low compared to target
-            
-            // Noise amplitudes
-            highNoiseAmp = 0.6 + Math.random() * 0.6; // Slightly less violent noise
-            lowDriftAmp = 0.6 + Math.random() * 0.6;
-            
-            sliderLP.value = 40; // Starts fully open
-            sliderHP.value = 0;  // Starts fully open
-            
-            scoreDisplay.className = '';
-            startTimer();
-            drawSignals();
+            targetFreq = 3.0 + Math.random() * 8.0; targetPhase = Math.random() * Math.PI * 2; 
+            highNoiseFreq = targetFreq * (4.0 + Math.random() * 3.0); lowDriftFreq = targetFreq * (0.02 + Math.random() * 0.05);
+            highNoiseAmp = 0.6 + Math.random() * 0.6; lowDriftAmp = 0.6 + Math.random() * 0.6;
+            sliderLP.value = 40; sliderHP.value = 0;
+            startTimer(); drawSignals();
         }
 
-        sliderLP.addEventListener('input', drawSignals);
-        sliderHP.addEventListener('input', drawSignals);
+        sliderLP.addEventListener('input', drawSignals); sliderHP.addEventListener('input', drawSignals);
         document.getElementById('btnNew').addEventListener('click', restart);
-
-        // Start game on load
         restart();
     </script>
 </body>

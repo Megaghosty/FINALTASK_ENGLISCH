@@ -51,38 +51,25 @@
 
         <div class="dictionary">
             <h3>ASCII Conversion Table (8-bit)</h3>
-            <div class="grid" id="dict-grid">
-                <!-- Javascript will generate the table -->
-            </div>
+            <div class="grid" id="dict-grid"></div>
         </div>
     </div>
 
     <script>
-        const wordList = [
-            "SIGNAL", "FRAME", "NETWORK", "LOOP", "CODER", 
-            "SERVER", "CLIENT", "DATA", "SYSTEM", "HACKER",
-            "MODEM", "FIBER", "BYTE", "PIXELS", "OFFICE"
-        ];
+        // CONFIGURATION JSONBIN
+        const BIN_ID = "6a280a49da38895dfea022b1"; 
+        const API_KEY = "$2a$10$juGyrAPOP2NEcWv322Q5..PvFOhU5GHtvq/XPyGM2O97LKLFlOlwe";
 
-        let currentWord = "";
-        let startTime;
-        let timerInterval;
-        let isVictorious = false;
+        const wordList = ["SIGNAL", "FRAME", "NETWORK", "LOOP", "CODER", "SERVER", "CLIENT", "DATA", "SYSTEM", "HACKER", "MODEM", "FIBER", "BYTE", "PIXELS", "OFFICE"];
+        let currentWord = "", startTime, timerInterval, isVictorious = false;
         
         const canvas = document.getElementById('trameCanvas');
         const ctx = canvas.getContext('2d');
-        const userInput = document.getElementById('userInput');
-        const btnSubmit = document.getElementById('btnSubmit');
-        const btnNext = document.getElementById('btnNext');
-        const messageDisplay = document.getElementById('message');
-        const dictGrid = document.getElementById('dict-grid');
-        const timerDisplay = document.getElementById('timer-display');
+        const userInput = document.getElementById('userInput'), btnSubmit = document.getElementById('btnSubmit'), btnNext = document.getElementById('btnNext'), messageDisplay = document.getElementById('message'), dictGrid = document.getElementById('dict-grid'), timerDisplay = document.getElementById('timer-display');
 
         function generateDictionary() {
             for (let i = 65; i <= 90; i++) {
-                const letter = String.fromCharCode(i);
-                const binary = i.toString(2).padStart(8, '0');
-                
+                const letter = String.fromCharCode(i), binary = i.toString(2).padStart(8, '0');
                 const div = document.createElement('div');
                 div.className = 'grid-item';
                 div.innerHTML = `${letter} = <span>${binary}</span>`;
@@ -90,83 +77,54 @@
             }
         }
 
-        function textToBinaryRaw(text) {
-            return text.split('').map(char => {
-                return char.charCodeAt(0).toString(2).padStart(8, '0');
-            }).join('');
-        }
+        function textToBinaryRaw(text) { return text.split('').map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join(''); }
 
         function startTimer() {
             clearInterval(timerInterval);
             isVictorious = false;
             startTime = Date.now();
-            timerDisplay.style.color = '#ffeb3b';
-            
             timerInterval = setInterval(() => {
-                if (!isVictorious) {
-                    const elapsedTime = (Date.now() - startTime) / 1000;
-                    timerDisplay.textContent = `Time: ${elapsedTime.toFixed(1)}s`;
-                }
+                if (!isVictorious) timerDisplay.textContent = `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
             }, 100);
         }
 
-        // Feature: Auto-save score to global leaderboard from Dashboard
-        function saveScore(time) {
+        // SAVE SCORE TO JSONBIN
+        async function saveScore(newTime) {
             const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
-            let scores = JSON.parse(localStorage.getItem('scores_binary') || "[]");
-            const existingIndex = scores.findIndex(s => s.name === nickname);
-            if (existingIndex !== -1) {
-                if (time < scores[existingIndex].score) {
-                    scores[existingIndex].score = time; // Ecraser si le nouveau temps est meilleur
-                }
-            } else {
-                scores.push({ name: nickname, score: time });
-            }
-            localStorage.setItem('scores_binary', JSON.stringify(scores));
+            
+            // 1. Récupération
+            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
+            let data = await response.json();
+            let allScores = data.record;
+
+            // 2. Modification
+            allScores.scores_binary.push({ name: nickname, score: newTime });
+            allScores.scores_binary.sort((a, b) => a.score - b.score);
+            allScores.scores_binary = allScores.scores_binary.slice(0, 10);
+
+            // 3. Envoi
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify(allScores)
+            });
         }
 
         function drawDigitalWave(binaryString) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            const bitWidth = canvas.width / binaryString.length;
-            const yHigh = 25; 
-            const yLow = canvas.height - 25; 
-
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = '#333';
-            ctx.beginPath();
-            ctx.moveTo(0, yHigh); ctx.lineTo(canvas.width, yHigh);
-            ctx.moveTo(0, yLow); ctx.lineTo(canvas.width, yLow);
-            ctx.stroke();
-            
-            ctx.strokeStyle = '#222';
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.stroke();
+            const bitWidth = canvas.width / binaryString.length, yHigh = 25, yLow = canvas.height - 25; 
+            ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, yHigh); ctx.lineTo(canvas.width, yHigh); ctx.moveTo(0, yLow); ctx.lineTo(canvas.width, yLow); ctx.stroke();
+            ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
 
             for(let i = 0; i <= binaryString.length; i++) {
-                const x = i * bitWidth;
-                ctx.beginPath();
-                ctx.strokeStyle = (i % 8 === 0) ? '#666' : '#222'; 
-                ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
-                ctx.stroke();
+                ctx.beginPath(); ctx.strokeStyle = (i % 8 === 0) ? '#666' : '#222'; ctx.moveTo(i * bitWidth, 0); ctx.lineTo(i * bitWidth, canvas.height); ctx.stroke();
             }
 
-            ctx.beginPath();
-            ctx.strokeStyle = '#ffeb3b';
-            ctx.lineWidth = 3;
-
-            let currentY = binaryString[0] === '1' ? yHigh : yLow;
-            ctx.moveTo(0, currentY);
-
+            ctx.beginPath(); ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+            let currentY = binaryString[0] === '1' ? yHigh : yLow; ctx.moveTo(0, currentY);
             for (let i = 0; i < binaryString.length; i++) {
-                const bit = binaryString[i];
-                const targetY = bit === '1' ? yHigh : yLow;
-
-                if (targetY !== currentY) {
-                    ctx.lineTo(i * bitWidth, targetY);
-                    currentY = targetY;
-                }
+                const targetY = binaryString[i] === '1' ? yHigh : yLow;
+                if (targetY !== currentY) { ctx.lineTo(i * bitWidth, targetY); currentY = targetY; }
                 ctx.lineTo((i + 1) * bitWidth, currentY);
             }
             ctx.stroke();
@@ -174,55 +132,26 @@
 
         function startNewRound() {
             currentWord = wordList[Math.floor(Math.random() * wordList.length)];
-            const rawBits = textToBinaryRaw(currentWord);
-            
-            drawDigitalWave(rawBits);
-            
-            userInput.value = "";
-            userInput.disabled = false;
-            messageDisplay.textContent = "";
-            messageDisplay.className = "";
-            btnSubmit.style.display = "block";
-            btnNext.style.display = "none";
-            
-            startTimer();
-            userInput.focus();
+            drawDigitalWave(textToBinaryRaw(currentWord));
+            userInput.value = ""; userInput.disabled = false; messageDisplay.textContent = ""; btnSubmit.style.display = "block"; btnNext.style.display = "none";
+            startTimer(); userInput.focus();
         }
 
         function checkAnswer() {
-            const guess = userInput.value.trim().toUpperCase();
-            
-            if (guess === currentWord) {
-                isVictorious = true;
-                clearInterval(timerInterval);
-                
-                messageDisplay.textContent = "✅ ACCESS GRANTED: Perfect translation!";
-                messageDisplay.className = "success";
-                userInput.disabled = true;
-                btnSubmit.style.display = "none";
-                btnNext.style.display = "block";
-                
-                ctx.strokeStyle = '#00ff00';
-                ctx.stroke();
-
+            if (userInput.value.trim().toUpperCase() === currentWord) {
+                isVictorious = true; clearInterval(timerInterval);
+                messageDisplay.textContent = "✅ ACCESS GRANTED!"; messageDisplay.className = "success";
+                userInput.disabled = true; btnSubmit.style.display = "none"; btnNext.style.display = "block";
+                ctx.strokeStyle = '#00ff00'; ctx.stroke();
                 saveScore((Date.now() - startTime) / 1000);
             } else {
-                messageDisplay.textContent = "❌ DECODING ERROR: Try again.";
-                messageDisplay.className = "error";
-                userInput.style.transform = "translateX(5px)";
-                setTimeout(() => userInput.style.transform = "translateX(-5px)", 50);
-                setTimeout(() => userInput.style.transform = "translateX(0)", 100);
+                messageDisplay.textContent = "❌ DECODING ERROR!"; messageDisplay.className = "error";
             }
         }
 
         btnSubmit.addEventListener('click', checkAnswer);
         btnNext.addEventListener('click', startNewRound);
-        
-        userInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                checkAnswer();
-            }
-        });
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') checkAnswer(); });
 
         generateDictionary();
         startNewRound();
