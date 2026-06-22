@@ -13,10 +13,11 @@
             flex-direction: column; 
             align-items: center; 
             margin: 0; 
-            padding: 20px 10px; /* Moins de padding latéral sur mobile */
+            padding: 20px 15px;
+            box-sizing: border-box;
         }
         
-        h1 { margin-top: 0; color: #4da8da; margin-bottom: 5px; text-align: center; }
+        h1 { margin-top: 0; color: #4da8da; margin-bottom: 10px; text-align: center; font-size: 1.8em; }
         
         .back-link { 
             color: #4da8da; 
@@ -26,59 +27,56 @@
             border-radius: 5px; 
             transition: all 0.2s; 
             align-self: flex-start; 
-            margin-left: 10%; 
-            margin-bottom: 10px; 
+            margin-bottom: 15px; 
         }
         .back-link:hover { background-color: #4da8da; color: #121212; }
         
         .game-container { 
             background-color: #2a2a2a; 
-            padding: 30px; 
+            padding: 20px; 
             border-radius: 8px; 
-            width: 80%; 
+            width: 100%; 
             max-width: 900px; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
-            text-align: center; 
-            box-sizing: border-box; /* Évite les débordements */
+            box-sizing: border-box; 
         }
         
         .hud { 
             display: flex; 
-            justify-content: space-around; 
+            justify-content: space-between; 
             margin-bottom: 15px; 
             background: #1e1e1e; 
-            padding: 10px; 
+            padding: 10px 15px; 
             border-radius: 5px; 
             border: 1px solid #333;
         }
-        #timer-display, #score-display { 
-            font-size: 22px; 
-            font-weight: bold; 
-        }
+        #timer-display, #score-display { font-size: 1.2em; font-weight: bold; }
         #timer-display { color: #ffeb3b; font-family: monospace; }
         #score-display { color: #00ff00; }
 
         .canvas-wrapper { position: relative; margin-bottom: 15px; width: 100%; }
         .canvas-label { 
             position: absolute; 
-            top: 10px; 
-            left: 10px; 
-            font-size: 14px; 
+            top: 5px; 
+            left: 5px; 
+            font-size: 12px; 
             color: #aaa; 
-            background: rgba(0,0,0,0.5); 
-            padding: 3px 8px; 
+            background: rgba(0,0,0,0.6); 
+            padding: 3px 6px; 
             border-radius: 3px; 
+            pointer-events: none;
         }
         
+        /* Hauteur fixe en CSS pour garantir l'espace tactile sur mobile */
         canvas { 
             background-color: #1e1e1e; 
             border: 1px solid #444; 
             border-radius: 5px; 
             box-shadow: inset 0 0 10px rgba(0,0,0,0.5); 
-            width: 100%; /* Rend le canvas fluide */
-            height: auto; /* Conserve le ratio */
-            max-width: 900px; 
-            touch-action: none; /* Empêche les zooms tactiles natifs sur le canvas */
+            width: 100%; 
+            height: 200px; 
+            display: block;
+            touch-action: none; /* Désactive le scroll de la page sur le canvas */
         }
         #freqCanvas { cursor: ns-resize; }
         
@@ -87,9 +85,18 @@
             justify-content: space-between; 
             align-items: center; 
             margin-top: 15px; 
+            flex-wrap: wrap;
+            gap: 15px;
         }
-        .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 16px; color: #ccc; cursor: pointer; text-align: left; }
-        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+        .toggle-container { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            font-size: 0.95em; 
+            color: #ccc; 
+            cursor: pointer; 
+        }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin: 0; }
         
         button { 
             padding: 12px 25px; 
@@ -104,24 +111,21 @@
         }
         button:hover { background-color: #357abd; }
         
-        .status { margin-bottom: 15px; font-style: italic; color: #ccc; font-size: 0.9em; }
+        .status { margin-bottom: 15px; font-style: italic; color: #aaa; font-size: 0.9em; text-align: center; line-height: 1.4; }
         .victory { color: #00ff00 !important; text-shadow: 0 0 10px #00ff00; }
 
-        /* --- ADAPTATIONS RESPONSIVE (MOBILE) --- */
-        @media (max-width: 768px) {
-            .back-link { margin-left: 0; width: 100%; text-align: center; box-sizing: border-box; }
-            .game-container { width: 100%; padding: 15px; }
-            .hud { flex-direction: column; gap: 10px; align-items: center; }
-            #timer-display, #score-display { font-size: 18px; }
-            .controls { flex-direction: column; gap: 20px; align-items: stretch; }
+        /* Adaptations spécifiques aux téléphones */
+        @media (max-width: 600px) {
+            .hud { flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+            .controls { flex-direction: column; align-items: stretch; }
             button { width: 100%; }
-            .canvas-label { font-size: 12px; padding: 2px 6px; }
+            canvas { height: 180px; } /* Légèrement plus petit mais reste jouable */
         }
     </style>
 </head>
 <body>
 
-    <a href="index.html" class="back-link">⬅️ Back to Dashboard</a>
+    <a href="index.html" class="back-link">⬅️ Back</a>
 
     <h1>Fourier Series Match</h1>
     
@@ -131,22 +135,22 @@
             <div id="timer-display">Time: 0.0s</div>
         </div>
 
-        <div class="status">Click/Touch and DRAG the bars in the Frequency Domain to match the red target signal!</div>
+        <div class="status">Slide your finger up and down on the bottom bars to match the red signal!</div>
 
         <div class="canvas-wrapper">
-            <div class="canvas-label">Time Domain (Waveform)</div>
-            <canvas id="timeCanvas" width="860" height="200"></canvas>
+            <div class="canvas-label">Waveform</div>
+            <canvas id="timeCanvas"></canvas>
         </div>
 
         <div class="canvas-wrapper">
-            <div class="canvas-label">Frequency Domain (Spectrum)</div>
-            <canvas id="freqCanvas" width="860" height="180"></canvas>
+            <div class="canvas-label">Frequencies</div>
+            <canvas id="freqCanvas"></canvas>
         </div>
         
         <div class="controls">
             <label class="toggle-container">
                 <input type="checkbox" id="chkShowComponents"> 
-                Show Individual Harmonics (X-Ray)
+                Show Details (X-Ray)
             </label>
             <button id="btnNew">New Challenge</button>
         </div>
@@ -156,9 +160,11 @@
         const BIN_ID = "6a280a49da38895dfea022b1"; 
         const API_KEY = "$2a$10$juGyrAPOP2NEcWv322Q5..PvFOhU5GHtvq/XPyGM2O97LKLFlOlwe";
 
-        const tCtx = document.getElementById('timeCanvas').getContext('2d');
-        const fCtx = document.getElementById('freqCanvas').getContext('2d');
+        const tCanvas = document.getElementById('timeCanvas');
         const fCanvas = document.getElementById('freqCanvas');
+        const tCtx = tCanvas.getContext('2d');
+        const fCtx = fCanvas.getContext('2d');
+        
         const scoreDisplay = document.getElementById('score-display');
         const timerDisplay = document.getElementById('timer-display');
         const chkShowComponents = document.getElementById('chkShowComponents');
@@ -170,6 +176,10 @@
         
         let isDragging = false;
         let activeBar = -1;
+
+        // Variables dynamiques pour le canvas (vrai responsive)
+        let fW, fH, tW, tH;
+        let barWidth, spacing, baseLine, maxBarHeight;
 
         function initHarmonics() {
             targetHarmonics = Array.from({length: NUM_HARMONICS}, () => Math.random());
@@ -203,69 +213,93 @@
                     body: JSON.stringify(allScores)
                 });
             } catch (err) {
-                console.error("Erreur de sauvegarde :", err);
+                console.error("Save error:", err);
             }
         }
 
+        // Met à jour la taille interne des Canvas pour s'adapter à la taille CSS
+        function resizeCanvas() {
+            tW = tCanvas.clientWidth;
+            tH = tCanvas.clientHeight;
+            tCanvas.width = tW;
+            tCanvas.height = tH;
+
+            fW = fCanvas.clientWidth;
+            fH = fCanvas.clientHeight;
+            fCanvas.width = fW;
+            fCanvas.height = fH;
+
+            // Recalcul des proportions des barres tactiles
+            barWidth = Math.min(50, fW / (NUM_HARMONICS * 1.5));
+            spacing = (fW - (NUM_HARMONICS * barWidth)) / (NUM_HARMONICS + 1);
+            baseLine = fH * 0.85;
+            maxBarHeight = fH * 0.65;
+
+            if (targetHarmonics.length > 0) drawAll();
+        }
+
         function drawTimeDomain() {
-            tCtx.clearRect(0, 0, 860, 200);
-            const centerY = 100;
-            const ampScale = 40; 
+            tCtx.clearRect(0, 0, tW, tH);
+            const centerY = tH / 2;
+            const ampScale = tH * 0.4; 
 
+            // Axe central
             tCtx.strokeStyle = '#333'; tCtx.lineWidth = 1; tCtx.beginPath();
-            tCtx.moveTo(0, centerY); tCtx.lineTo(860, centerY); tCtx.stroke();
+            tCtx.moveTo(0, centerY); tCtx.lineTo(tW, centerY); tCtx.stroke();
 
+            // Cible
             tCtx.strokeStyle = 'rgba(255, 80, 80, 0.8)'; tCtx.lineWidth = 2; tCtx.setLineDash([8,6]); tCtx.beginPath();
-            for(let x=0; x<860; x++) { 
-                let y = centerY - (targetHarmonics.reduce((a,v,i) => a + v * Math.sin((x/60)*(i*2+1)), 0) * ampScale); 
+            for(let x=0; x<tW; x++) { 
+                let y = centerY - (targetHarmonics.reduce((a,v,i) => a + v * Math.sin((x/(tW/14))*(i*2+1)), 0) * ampScale); 
                 x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y); 
             }
             tCtx.stroke(); tCtx.setLineDash([]);
 
+            // Mode Rayon X
             if (chkShowComponents.checked) {
                 tCtx.lineWidth = 1;
                 for (let i = 0; i < NUM_HARMONICS; i++) {
                     tCtx.strokeStyle = `hsla(${200 + i*30}, 100%, 50%, 0.3)`;
                     tCtx.beginPath();
-                    for(let x=0; x<860; x++) {
-                        let y = centerY - (userHarmonics[i] * Math.sin((x/60)*(i*2+1)) * ampScale);
+                    for(let x=0; x<tW; x++) {
+                        let y = centerY - (userHarmonics[i] * Math.sin((x/(tW/14))*(i*2+1)) * ampScale);
                         x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y);
                     }
                     tCtx.stroke();
                 }
             }
 
+            // Signal Joueur
             tCtx.strokeStyle = '#00d2ff'; tCtx.lineWidth = 3; tCtx.beginPath();
-            for(let x=0; x<860; x++) { 
-                let y = centerY - (userHarmonics.reduce((a,v,i) => a + v * Math.sin((x/60)*(i*2+1)), 0) * ampScale); 
+            for(let x=0; x<tW; x++) { 
+                let y = centerY - (userHarmonics.reduce((a,v,i) => a + v * Math.sin((x/(tW/14))*(i*2+1)), 0) * ampScale); 
                 x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y); 
             }
             tCtx.stroke();
         }
 
         function drawFreqDomain() {
-            fCtx.clearRect(0, 0, 860, 180);
-            
-            const barWidth = 50;
-            const spacing = (860 - (NUM_HARMONICS * barWidth)) / (NUM_HARMONICS + 1);
-            const baseLine = 150;
-            const maxBarHeight = 120;
+            fCtx.clearRect(0, 0, fW, fH);
 
+            // Ligne de base
             fCtx.strokeStyle = '#555'; fCtx.lineWidth = 2; fCtx.beginPath();
-            fCtx.moveTo(0, baseLine); fCtx.lineTo(860, baseLine); fCtx.stroke();
+            fCtx.moveTo(0, baseLine); fCtx.lineTo(fW, baseLine); fCtx.stroke();
 
             for(let i=0; i<NUM_HARMONICS; i++) {
                 let startX = spacing + i * (barWidth + spacing);
                 
+                // Contour max
                 fCtx.strokeStyle = '#444'; fCtx.lineWidth = 1; 
                 fCtx.strokeRect(startX, baseLine - maxBarHeight, barWidth, maxBarHeight);
                 
+                // Texte
                 fCtx.fillStyle = '#aaa'; fCtx.font = "14px sans-serif"; fCtx.textAlign = "center";
                 fCtx.fillText(`${i*2+1}f`, startX + barWidth/2, baseLine + 20);
 
-                let barHeight = userHarmonics[i] * maxBarHeight;
+                // Remplissage dynamique
+                let barH = userHarmonics[i] * maxBarHeight;
                 fCtx.fillStyle = (activeBar === i) ? '#ffffff' : '#00d2ff';
-                fCtx.fillRect(startX, baseLine - barHeight, barWidth, barHeight);
+                fCtx.fillRect(startX, baseLine - barH, barWidth, barH);
             }
         }
 
@@ -295,74 +329,77 @@
             calculateScore();
         }
 
-        // --- GESTION UNIFIÉE SOURIS & TACTILE ---
-        function getBarIndex(mouseX) {
-            const barWidth = 50;
-            const spacing = (860 - (NUM_HARMONICS * barWidth)) / (NUM_HARMONICS + 1);
+        // --- GESTION DES INTERACTIONS ---
+        function getBarIndex(x) {
             for(let i=0; i<NUM_HARMONICS; i++) {
                 let startX = spacing + i * (barWidth + spacing);
-                if (mouseX >= startX && mouseX <= startX + barWidth) return i;
+                // Hitbox élargie pour les doigts sur mobile
+                let touchPadding = 15; 
+                if (x >= startX - touchPadding && x <= startX + barWidth + touchPadding) return i;
             }
             return -1;
         }
 
-        function updateBarHeight(mouseY) {
+        function updateBarHeight(y) {
             if (activeBar === -1) return;
-            const baseLine = 150;
-            const maxBarHeight = 120;
-            let val = (baseLine - mouseY) / maxBarHeight;
+            let val = (baseLine - y) / maxBarHeight;
             userHarmonics[activeBar] = Math.min(1, Math.max(0, val));
             drawAll();
         }
 
-        function handlePointerDown(clientX, clientY) {
-            if(isVictorious) return;
+        function getMousePos(e) {
             const rect = fCanvas.getBoundingClientRect();
-            const mouseX = (clientX - rect.left) * (fCanvas.width / rect.width);
-            activeBar = getBarIndex(mouseX);
+            // Puisque canvas.width = rect.width, on a plus besoin de ratio complexe
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if(e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function handleStart(e) {
+            if(isVictorious) return;
+            const pos = getMousePos(e);
+            activeBar = getBarIndex(pos.x);
             if (activeBar !== -1) {
                 isDragging = true;
-                updateBarHeight((clientY - rect.top) * (fCanvas.height / rect.height));
+                updateBarHeight(pos.y);
             }
         }
 
-        function handlePointerMove(clientX, clientY) {
+        function handleMove(e) {
             if(isVictorious) return;
-            const rect = fCanvas.getBoundingClientRect();
+            const pos = getMousePos(e);
             if (isDragging) {
-                updateBarHeight((clientY - rect.top) * (fCanvas.height / rect.height));
-            } else {
-                const mouseX = (clientX - rect.left) * (fCanvas.width / rect.width);
-                let hoverBar = getBarIndex(mouseX);
+                updateBarHeight(pos.y);
+            } else if (!e.touches) {
+                // Survol visuel uniquement pour la souris
+                let hoverBar = getBarIndex(pos.x);
                 if(hoverBar !== activeBar) { activeBar = hoverBar; drawFreqDomain(); }
             }
         }
 
-        function handlePointerUp() {
+        function handleEnd() {
             isDragging = false; 
             activeBar = -1; 
             drawFreqDomain();
         }
 
         // Événements Souris
-        fCanvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
-        fCanvas.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
-        window.addEventListener('mouseup', handlePointerUp);
+        fCanvas.addEventListener('mousedown', handleStart);
+        fCanvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
 
-        // Événements Tactiles (Smartphones/Tablettes)
-        fCanvas.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Empêche le scroll de l'écran quand on joue
-            handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: false });
-        
-        fCanvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: false });
-        
-        window.addEventListener('touchend', handlePointerUp);
+        // Événements Tactiles (Smartphones)
+        fCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
+        fCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
+        window.addEventListener('touchend', handleEnd);
 
-        // Autres contrôles
+        // Resize Listener pour recalculer en cas de rotation d'écran
+        window.addEventListener('resize', resizeCanvas);
+
         chkShowComponents.addEventListener('change', drawAll);
         document.getElementById('btnNew').addEventListener('click', () => {
             initHarmonics();
@@ -370,10 +407,10 @@
             drawAll();
         });
 
-        // Lancement initial
+        // Lancement
+        resizeCanvas();
         initHarmonics();
         startTimer();
-        drawAll();
     </script>
 </body>
 </html>
