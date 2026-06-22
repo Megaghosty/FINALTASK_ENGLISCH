@@ -3,28 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signal Filtering Game</title>
+    <title>Fourier Series Match</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #ffffff; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-        h1 { margin-top: 0; color: #ffeb3b; margin-bottom: 5px; }
-        .back-link { color: #ffeb3b; text-decoration: none; border: 1px solid #ffeb3b; padding: 8px 15px; border-radius: 5px; align-self: flex-start; margin-left: 10%; margin-bottom: 10px; }
-        .back-link:hover { background-color: #ffeb3b; color: #121212; }
+        h1 { margin-top: 0; color: #4da8da; margin-bottom: 5px; text-align: center; }
+        .back-link { color: #4da8da; text-decoration: none; border: 1px solid #4da8da; padding: 8px 15px; border-radius: 5px; transition: all 0.2s; align-self: flex-start; margin-left: 10%; margin-bottom: 10px; }
+        .back-link:hover { background-color: #4da8da; color: #121212; }
         
-        #score-display { font-size: 24px; font-weight: bold; margin-bottom: 5px; text-align: center; }
-        #timer-display { font-size: 20px; color: #ffeb3b; margin-bottom: 15px; font-family: monospace; }
+        .game-container { background-color: #2a2a2a; padding: 30px; border-radius: 8px; width: 80%; max-width: 900px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center; }
         
-        canvas { background-color: #1e1e1e; border: 2px solid #333; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 80%; max-width: 900px; aspect-ratio: 8/3.5; }
+        .hud { display: flex; justify-content: space-around; margin-bottom: 15px; background: #1e1e1e; padding: 10px; border-radius: 5px; border: 1px solid #333;}
+        #timer-display { font-size: 22px; color: #ffeb3b; font-family: monospace; font-weight: bold; }
+        #score-display { font-size: 22px; color: #00ff00; font-weight: bold; }
+
+        .canvas-wrapper { position: relative; margin-bottom: 15px; }
+        .canvas-label { position: absolute; top: 10px; left: 10px; font-size: 14px; color: #aaa; background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 3px; }
         
-        .controls { background-color: #2a2a2a; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .description { font-size: 15px; color: #ccc; margin-bottom: 25px; text-align: center; line-height: 1.5; }
+        canvas { background-color: #1e1e1e; border: 1px solid #444; border-radius: 5px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); width: 100%; max-width: 900px; }
+        #freqCanvas { cursor: ns-resize; } /* Curseur indiquant qu'on peut glisser verticalement */
         
-        .slider-container { display: flex; flex-direction: column; margin-bottom: 20px; }
-        .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; }
-        input[type=range] { width: 100%; cursor: pointer; }
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+        .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 16px; color: #ccc; cursor: pointer; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
         
-        button { width: 100%; padding: 12px; background-color: #ffeb3b; color: #121212; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; margin-top: 10px; }
-        button:hover { background-color: #d4c520; }
+        button { padding: 12px 25px; background-color: #4da8da; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #357abd; }
         
+        .status { margin-bottom: 15px; font-style: italic; color: #ccc; }
         .victory { color: #00ff00 !important; text-shadow: 0 0 10px #00ff00; }
     </style>
 </head>
@@ -32,129 +37,250 @@
 
     <a href="index.html" class="back-link">⬅️ Back to Dashboard</a>
 
-    <h1>Signal Filtering</h1>
-    <div id="score-display">Purity: 0.0%</div>
-    <div id="timer-display">Time: 0.0s</div>
+    <h1>Fourier Series Match</h1>
     
-    <canvas id="filterCanvas" width="800" height="350"></canvas>
-
-    <div class="controls">
-        <div class="description">
-            Your signal (White) is heavily corrupted by <strong>High Frequency Noise</strong> and <strong>Low Frequency Drift</strong>.<br>
-            Tweak your filters below to recover the clean Target Signal (Red Dashed) as fast as possible!
+    <div class="game-container">
+        <div class="hud">
+            <div id="score-display">Accuracy: 0.0%</div>
+            <div id="timer-display">Time: 0.0s</div>
         </div>
 
-        <div class="slider-container">
-            <div class="slider-header">
-                <span style="color: #00d2ff;">Low-Pass Filter (Cutoff Freq)</span>
-                <span id="valLP">40 Hz</span>
-            </div>
-            <input type="range" id="sliderLP" min="0.5" max="40" step="0.5" value="40">
+        <div class="status">Click and DRAG the bars in the Frequency Domain to match the red target signal!</div>
+
+        <div class="canvas-wrapper">
+            <div class="canvas-label">Time Domain (Waveform)</div>
+            <canvas id="timeCanvas" width="860" height="200"></canvas>
         </div>
 
-        <div class="slider-container">
-            <div class="slider-header">
-                <span style="color: #ff4500;">High-Pass Filter (Cutoff Freq)</span>
-                <span id="valHP">0 Hz</span>
-            </div>
-            <input type="range" id="sliderHP" min="0" max="25" step="0.5" value="0">
+        <div class="canvas-wrapper">
+            <div class="canvas-label">Frequency Domain (Spectrum)</div>
+            <canvas id="freqCanvas" width="860" height="180"></canvas>
         </div>
-
-        <button id="btnNew">Generate New Corrupted Signal</button>
+        
+        <div class="controls">
+            <label class="toggle-container">
+                <input type="checkbox" id="chkShowComponents"> 
+                Show Individual Harmonics (X-Ray Mode)
+            </label>
+            <button id="btnNew">New Challenge</button>
+        </div>
     </div>
 
     <script>
-        // CONFIGURATION JSONBIN
+        // CONFIGURATION JSONBIN (Restaurée pour s'intégrer au dashboard)
         const BIN_ID = "6a280a49da38895dfea022b1"; 
         const API_KEY = "$2a$10$juGyrAPOP2NEcWv322Q5..PvFOhU5GHtvq/XPyGM2O97LKLFlOlwe";
 
-        const canvas = document.getElementById('filterCanvas');
-        const ctx = canvas.getContext('2d');
-        const sliderLP = document.getElementById('sliderLP'), sliderHP = document.getElementById('sliderHP');
-        const valLP = document.getElementById('valLP'), valHP = document.getElementById('valHP');
-        const scoreDisplay = document.getElementById('score-display'), timerDisplay = document.getElementById('timer-display');
+        const tCtx = document.getElementById('timeCanvas').getContext('2d');
+        const fCtx = document.getElementById('freqCanvas').getContext('2d');
+        const fCanvas = document.getElementById('freqCanvas');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const chkShowComponents = document.getElementById('chkShowComponents');
         
-        let targetFreq = 2.0, targetPhase = 0.0, highNoiseFreq = 20.0, highNoiseAmp = 1.2, lowDriftFreq = 0.2, lowDriftAmp = 1.5; 
+        const NUM_HARMONICS = 5; // Passé de 3 à 5 pour plus de défi
+        let targetHarmonics = [];
+        let userHarmonics = [];
         let startTime, timerInterval, isVictorious = false;
+        
+        // Variables pour le Drag & Drop
+        let isDragging = false;
+        let activeBar = -1;
+
+        function initHarmonics() {
+            targetHarmonics = Array.from({length: NUM_HARMONICS}, () => Math.random());
+            userHarmonics = Array(NUM_HARMONICS).fill(0);
+        }
 
         function startTimer() {
             clearInterval(timerInterval);
             isVictorious = false;
             startTime = Date.now();
+            timerDisplay.style.color = '#ffeb3b';
             timerInterval = setInterval(() => {
                 if (!isVictorious) timerDisplay.textContent = `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
             }, 100);
         }
 
-        // SAVE SCORE TO JSONBIN
-        async function saveScore(newTime) {
-            const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
-            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
-            let data = await response.json();
-            let allScores = data.record;
+        async function saveScore(timeTaken) {
+            try {
+                const nickname = localStorage.getItem('nickname') || 'Anonymous Player';
+                let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { "X-Master-Key": API_KEY } });
+                let data = await response.json();
+                let allScores = data.record;
 
-            allScores.scores_filter.push({ name: nickname, score: newTime });
-            allScores.scores_filter.sort((a, b) => a.score - b.score);
-            allScores.scores_filter = allScores.scores_filter.slice(0, 10);
+                // Sauvegarde dans scores_filter pour correspondre au tableau de bord
+                allScores.scores_filter.push({ name: nickname, score: timeTaken });
+                // Tri ascendant (le temps le plus bas est le meilleur)
+                allScores.scores_filter.sort((a, b) => a.score - b.score); 
+                allScores.scores_filter = allScores.scores_filter.slice(0, 10);
 
-            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify(allScores)
-            });
-        }
-
-        function drawSignals() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-
-            let f_LP = parseFloat(sliderLP.value), f_HP = parseFloat(sliderHP.value);
-            valLP.textContent = f_LP >= 40 ? "Bypass (40Hz)" : f_LP.toFixed(1) + " Hz";
-            valHP.textContent = f_HP <= 0 ? "Bypass (0Hz)" : f_HP.toFixed(1) + " Hz";
-
-            const getLP = (f, fc) => 1.0 / Math.sqrt(1 + Math.pow(f / fc, 8));
-            const getHP = (f, fc) => fc === 0 ? 1.0 : (f === 0 ? 0.0 : 1.0 / Math.sqrt(1 + Math.pow(fc / f, 8)));
-
-            let currentTargetAmp = 1.0 * getLP(targetFreq, f_LP) * getHP(targetFreq, f_HP);
-            let currentHighAmp = highNoiseAmp * getLP(highNoiseFreq, f_LP) * getHP(highNoiseFreq, f_HP);
-            let currentLowAmp = lowDriftAmp * getLP(lowDriftFreq, f_LP) * getHP(lowDriftFreq, f_HP);
-
-            const centerY = canvas.height / 2, scaleY = (canvas.height / 2) / 3.0;
-
-            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)'; ctx.lineWidth = 3; ctx.setLineDash([10, 10]);
-            for (let x = 0; x < canvas.width; x++) {
-                let t = (x / canvas.width) * 2, y = Math.sin(2 * Math.PI * targetFreq * t + targetPhase);
-                if (x === 0) ctx.moveTo(x, centerY - (y * scaleY)); else ctx.lineTo(x, centerY - (y * scaleY));
-            } ctx.stroke();
-
-            ctx.beginPath(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([]);
-            for (let x = 0; x < canvas.width; x++) {
-                let t = (x / canvas.width) * 2;
-                let y = (currentTargetAmp * Math.sin(2 * Math.PI * targetFreq * t + targetPhase)) + (currentHighAmp * Math.sin(2 * Math.PI * highNoiseFreq * t)) + (currentLowAmp * Math.sin(2 * Math.PI * lowDriftFreq * t));
-                if (x === 0) ctx.moveTo(x, centerY - (y * scaleY)); else ctx.lineTo(x, centerY - (y * scaleY));
-            } ctx.stroke();
-
-            let accuracy = Math.max(0, (1.0 - (Math.abs(1.0 - currentTargetAmp) * 0.4 + (currentHighAmp + currentLowAmp) * 0.15))) * 100;
-            if (!isVictorious) {
-                if (accuracy >= 85.0) {
-                    scoreDisplay.textContent = `🎯 SIGNAL CLEANED!`; scoreDisplay.className = 'victory';
-                    timerDisplay.style.color = '#00ff00'; isVictorious = true; clearInterval(timerInterval);
-                    saveScore((Date.now() - startTime) / 1000);
-                } else scoreDisplay.textContent = `Purity: ${accuracy.toFixed(1)}%`;
+                await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                    body: JSON.stringify(allScores)
+                });
+            } catch (err) {
+                console.error("Erreur lors de la sauvegarde :", err);
             }
         }
 
-        function restart() {
-            targetFreq = 3.0 + Math.random() * 8.0; targetPhase = Math.random() * Math.PI * 2; 
-            highNoiseFreq = targetFreq * (4.0 + Math.random() * 3.0); lowDriftFreq = targetFreq * (0.02 + Math.random() * 0.05);
-            highNoiseAmp = 0.6 + Math.random() * 0.6; lowDriftAmp = 0.6 + Math.random() * 0.6;
-            sliderLP.value = 40; sliderHP.value = 0;
-            startTimer(); drawSignals();
+        function drawTimeDomain() {
+            tCtx.clearRect(0, 0, 860, 200);
+            const centerY = 100;
+            const ampScale = 40; // Echelle d'amplitude
+
+            // Ligne de base (Zéro)
+            tCtx.strokeStyle = '#333'; tCtx.lineWidth = 1; tCtx.beginPath();
+            tCtx.moveTo(0, centerY); tCtx.lineTo(860, centerY); tCtx.stroke();
+
+            // Cible (Rouge pointillé)
+            tCtx.strokeStyle = 'rgba(255, 80, 80, 0.8)'; tCtx.lineWidth = 2; tCtx.setLineDash([8,6]); tCtx.beginPath();
+            for(let x=0; x<860; x++) { 
+                let y = centerY - (targetHarmonics.reduce((a,v,i) => a + v * Math.sin((x/60)*(i*2+1)), 0) * ampScale); 
+                x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y); 
+            }
+            tCtx.stroke(); tCtx.setLineDash([]);
+
+            // Affichage des harmoniques individuelles si la case est cochée
+            if (chkShowComponents.checked) {
+                tCtx.lineWidth = 1;
+                for (let i = 0; i < NUM_HARMONICS; i++) {
+                    tCtx.strokeStyle = `hsla(${200 + i*30}, 100%, 50%, 0.3)`; // Couleurs distinctes pâles
+                    tCtx.beginPath();
+                    for(let x=0; x<860; x++) {
+                        let y = centerY - (userHarmonics[i] * Math.sin((x/60)*(i*2+1)) * ampScale);
+                        x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y);
+                    }
+                    tCtx.stroke();
+                }
+            }
+
+            // Signal Joueur (Cyan - somme de Fourier)
+            tCtx.strokeStyle = '#00d2ff'; tCtx.lineWidth = 3; tCtx.beginPath();
+            for(let x=0; x<860; x++) { 
+                let y = centerY - (userHarmonics.reduce((a,v,i) => a + v * Math.sin((x/60)*(i*2+1)), 0) * ampScale); 
+                x===0 ? tCtx.moveTo(x,y) : tCtx.lineTo(x,y); 
+            }
+            tCtx.stroke();
         }
 
-        sliderLP.addEventListener('input', drawSignals); sliderHP.addEventListener('input', drawSignals);
-        document.getElementById('btnNew').addEventListener('click', restart);
-        restart();
+        function drawFreqDomain() {
+            fCtx.clearRect(0, 0, 860, 180);
+            
+            const barWidth = 50;
+            const spacing = (860 - (NUM_HARMONICS * barWidth)) / (NUM_HARMONICS + 1);
+            const baseLine = 150;
+            const maxBarHeight = 120;
+
+            // Axe X
+            fCtx.strokeStyle = '#555'; fCtx.lineWidth = 2; fCtx.beginPath();
+            fCtx.moveTo(0, baseLine); fCtx.lineTo(860, baseLine); fCtx.stroke();
+
+            for(let i=0; i<NUM_HARMONICS; i++) {
+                let startX = spacing + i * (barWidth + spacing);
+                
+                // Cadres vides (Limites)
+                fCtx.strokeStyle = '#444'; fCtx.lineWidth = 1; 
+                fCtx.strokeRect(startX, baseLine - maxBarHeight, barWidth, maxBarHeight);
+                
+                // Labels de fréquences (f, 3f, 5f...)
+                fCtx.fillStyle = '#aaa'; fCtx.font = "14px sans-serif"; fCtx.textAlign = "center";
+                fCtx.fillText(`${i*2+1}f`, startX + barWidth/2, baseLine + 20);
+
+                // Barres remplies par le joueur
+                let barHeight = userHarmonics[i] * maxBarHeight;
+                // Effet de survol/sélection
+                fCtx.fillStyle = (activeBar === i) ? '#ffffff' : '#00d2ff';
+                fCtx.fillRect(startX, baseLine - barHeight, barWidth, barHeight);
+            }
+        }
+
+        function calculateScore() {
+            let diff = userHarmonics.reduce((acc, h, i) => acc + Math.abs(h - targetHarmonics[i]), 0);
+            // On divise par le nb d'harmoniques pour avoir une marge proportionnelle
+            let accuracy = Math.max(0, 100 - (diff * (100 / NUM_HARMONICS))); 
+            
+            if (!isVictorious) {
+                scoreDisplay.textContent = `Accuracy: ${accuracy.toFixed(1)}%`;
+                scoreDisplay.className = '';
+            }
+
+            if(!isVictorious && accuracy >= 94) { // 94% de tolérance pour 5 harmoniques
+                isVictorious = true; 
+                clearInterval(timerInterval);
+                const finalTime = ((Date.now() - startTime) / 1000);
+                scoreDisplay.textContent = `🎯 PERFECT MATCH! (${accuracy.toFixed(1)}%)`;
+                scoreDisplay.className = 'victory';
+                timerDisplay.style.color = '#00ff00';
+                saveScore(finalTime);
+            }
+        }
+
+        function drawAll() {
+            drawTimeDomain();
+            drawFreqDomain();
+            calculateScore();
+        }
+
+        // -- LOGIQUE DE DRAG & DROP POUR L'HISTOGRAMME --
+        function getBarIndex(mouseX) {
+            const barWidth = 50;
+            const spacing = (860 - (NUM_HARMONICS * barWidth)) / (NUM_HARMONICS + 1);
+            for(let i=0; i<NUM_HARMONICS; i++) {
+                let startX = spacing + i * (barWidth + spacing);
+                if (mouseX >= startX && mouseX <= startX + barWidth) return i;
+            }
+            return -1;
+        }
+
+        function updateBarHeight(mouseY) {
+            if (activeBar === -1) return;
+            const baseLine = 150;
+            const maxBarHeight = 120;
+            // Calculer la valeur entre 0 et 1 inversée par rapport à Y
+            let val = (baseLine - mouseY) / maxBarHeight;
+            userHarmonics[activeBar] = Math.min(1, Math.max(0, val));
+            drawAll();
+        }
+
+        fCanvas.addEventListener('mousedown', (e) => {
+            if(isVictorious) return;
+            const rect = fCanvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (fCanvas.width / rect.width);
+            activeBar = getBarIndex(mouseX);
+            if (activeBar !== -1) {
+                isDragging = true;
+                updateBarHeight((e.clientY - rect.top) * (fCanvas.height / rect.height));
+            }
+        });
+
+        fCanvas.addEventListener('mousemove', (e) => {
+            if(isVictorious) return;
+            const rect = fCanvas.getBoundingClientRect();
+            if (isDragging) {
+                updateBarHeight((e.clientY - rect.top) * (fCanvas.height / rect.height));
+            } else {
+                // Survol visuel
+                const mouseX = (e.clientX - rect.left) * (fCanvas.width / rect.width);
+                let hoverBar = getBarIndex(mouseX);
+                if(hoverBar !== activeBar) { activeBar = hoverBar; drawFreqDomain(); }
+            }
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; activeBar = -1; drawFreqDomain(); });
+        chkShowComponents.addEventListener('change', drawAll);
+
+        document.getElementById('btnNew').addEventListener('click', () => {
+            initHarmonics();
+            startTimer();
+            drawAll();
+        });
+
+        // Lancement initial
+        initHarmonics();
+        startTimer();
+        drawAll();
     </script>
 </body>
 </html>
